@@ -1,0 +1,217 @@
+---
+title: "Homework 2 STAT 5014"
+author: "David Edwards"
+date: "9/10/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Problem 3
+
+Question:In the lecture, there were two links to StackOverflow questions on why one should use version control.  In your own words, summarize in 2-3 sentences how you think version control can help you in the classroom.
+
+Answer: The biggest area that I feel version control can help will be by simply keeping a backup of the code that I create.  This will help serve as a hedge against hardware malfunction.  The second way that I can see version control as being useful is by allowing me to easily revert back to previously working code in the event that make changes that result in the code either not compiling or not working correctly.  This will allow me the ability to more easily experiment without the risk of breaking what has worked in the past.  
+
+## Problem 4
+
+Question: In this exercise, you will import, munge, clean and summarize datasets from Wu and Hamada's _Experiments: Planning, Design and Analysis_ book you will use in the Spring.  For each one, please weave your code and text to describe both your process and observations.  Make sure you create a tidy dataset describing the variables, create a summary table of the data, note issues with the data.  
+
+a. Sensory data from five operators.    
+<http://www2.isye.gatech.edu/~jeffwu/wuhamadabook/data/Sensory.dat> 
+b. Gold Medal performance for Olympic Men's Long Jump, year is coded as 1900=0.  
+<http://www2.isye.gatech.edu/~jeffwu/wuhamadabook/data/LongJumpData.dat>  
+c. Brain weight (g) and body weight (kg) for 62 species.    
+<http://www2.isye.gatech.edu/~jeffwu/wuhamadabook/data/BrainandBodyWeight.dat>  
+d. Triplicate measurements of tomato yield for two varieties of tomatos at three planting densities.  
+<http://www2.isye.gatech.edu/~jeffwu/wuhamadabook/data/tomato.dat> 
+
+Answer: 
+### Part a
+For this data set the the columns and rows give values to the variables Operator and Item, with the actual values embeded in the table.  What I did was read in the data line by line and the loop through each line to pick out the values.  Then I added a row to a data frame for each "Operator", "Item", "Value" combination.  This resulted in a data frame with 150 rows and 3 variables.  
+
+```{r}
+library(readr)
+sensory <- readLines("http://www2.isye.gatech.edu/~jeffwu/wuhamadabook/data/Sensory.dat")
+df <- data.frame("Operator" = integer(), "Item" = integer(), "Value" = double())
+for (i in seq(3,32,3)){
+  line1 <- sensory[i]
+  line1 <- strsplit(line1, split = " ")
+  item_num <- parse_integer(line1[[1]][1])
+  for(j in 2:6){
+    row <- c(j-1,item_num, parse_double(line1[[1]][j]))
+    df <- rbind(df, row)
+  }
+  line2 <- sensory[i+1]
+  line2 <- strsplit(line2, split = " ")
+  for(j in 1:5){
+    row <- c(j,item_num, parse_double(line2[[1]][j]))
+    df <- rbind(df, row)
+  }
+  line3 <- sensory[i+2]
+  line3 <- strsplit(line3, split = " ")
+  for(j in 1:5){
+    row <- c(j,item_num, parse_double(line3[[1]][j]))
+    df <- rbind(df, row)
+  }
+}
+names(df)[names(df) == "X1"] <-"Operator"
+names(df)[names(df) == "X1.1"] <-"Item"
+names(df)[names(df) == "X4.3"] <-"Value"
+df
+```
+
+### Part b
+For this part I did essentially the samething as above, read in the data line by line and clean it up so that we have a data frame with 2 variables and 22 observations.  The table read in on 7 lines and then the first line wasn't needed and the next 4 lines had 4 observations each and the final two lines had 3 observations each.  
+
+
+```{r}
+lj <- readLines("http://www2.isye.gatech.edu/~jeffwu/wuhamadabook/data/LongJumpData.dat")
+df <- data.frame("Year" = integer(), "Long Jump"= double())
+line2 = lj[2]
+line3 = lj[3]
+line4 = lj[4]
+line5 = lj[5]
+line6 = lj[6]
+line7 = lj[7]
+line2 <- strsplit(line2, split = " ")
+line3 <- strsplit(line3, split = " ")
+line4 <- strsplit(line4, split = " ")
+line5 <- strsplit(line5, split = " ")
+line6 <- strsplit(line6, split = " ")
+line7 <- strsplit(line7, split = " ")
+for(i in c(1,3,5, 7)){
+  row <- c(parse_integer(line2[[1]][i]), parse_double(line2[[1]][i+1]))
+  df <- rbind(df, row)
+  row <- c(parse_integer(line3[[1]][i]), parse_double(line3[[1]][i+1]))
+  df <- rbind(df, row)
+  row <- c(parse_integer(line4[[1]][i]), parse_double(line4[[1]][i+1]))
+  df <- rbind(df, row)
+  row <- c(parse_integer(line5[[1]][i]), parse_double(line5[[1]][i+1]))
+  df <- rbind(df, row)
+}
+for(i in c(1,3,5)){
+  row <- c(parse_integer(line6[[1]][i]), parse_double(line6[[1]][i+1]))
+  df <- rbind(df, row)
+  row <- c(parse_integer(line7[[1]][i]), parse_double(line7[[1]][i+1]))
+  df <- rbind(df, row)
+}
+names(df)[names(df) == "X.4"] <-"Year"
+names(df)[names(df) == "X.4.1"] <-"Long Jump"
+df
+
+```
+
+### Part c
+I'm guessing from the little I have to go on that values are in the correct order, that is alternating between Body WT and Brain WT, as the table suggests.  From looking at the data it does seem that the values may have been reversed (as it would see that the brain weights more than the body) but it could also be that they are in different units.  
+
+Given the assumption above it was just a matter of looping through all the lines and pairing up the data to put into a data frame with two variables and 62 observations.  The last only had 2 observations while the other 20 had 3 observations each.  
+
+```{r}
+wt <- readLines("http://www2.isye.gatech.edu/~jeffwu/wuhamadabook/data/BrainandBodyWeight.dat")
+df <- data.frame("Body Wt" = double(), "Brain Wt"= double())
+for(i in 2:21){
+  line = wt[i]
+  line <- strsplit(line, split = " ")
+  for(j in c(1,3,5)){
+    row <- c(parse_double(line[[1]][j]), parse_double(line[[1]][j+1]))
+    df <- rbind(df, row)
+  }
+}
+line <- wt[22]
+line <- strsplit(line, split =" ")
+for(j in c(1,3)){
+  row <- c(parse_double(line[[1]][j]), parse_double(line[[1]][j+1]))
+  df <- rbind(df, row)
+}
+names(df)[names(df) == "X3.385"] <-"Body WT"
+names(df)[names(df) == "X44.5"] <-"Brain WT"
+df
+
+```
+
+### Part d
+I honestly have no idea what is going on with this data set.  Without any context this is nearly impossible to determine the approprate way to clean this data set.  So, here is the assumption that I'm working with to complete the assignment.  
+
+1. I'm going to assume that the 3 values in the second row are some amount of treatment.
+2. I'm going to assume that values in the first column are the two different treatments.
+3. I'm going to assume the values in the table are the actual results.
+
+Given that I have looped through the two lines that contain informaiton and added that to a data frame containing 3 variable and 18 observations.  For some reason I was never able to add the labels for the treatments "Ife\\#1" or "PusaEarlyDwarf" do the data frame, so I call "PusaEarlyDwarf" treatment 2 and "Ife\\#1" treatment 1.  
+
+```{r}
+t <- readLines("http://www2.isye.gatech.edu/~jeffwu/wuhamadabook/data/tomato.dat")
+df <- data.frame("Amount" = integer(), "Treatment"= integer(), "Value" = double())
+line3 <- t[3]
+line4 <- t[4]
+line3 <- strsplit(line3, split = "\\s+")
+line4 <- strsplit(line4, split = "\\s+")
+line3[[1]][1] ### Treatment 1
+line4[[1]][1] ### Treatment 2
+for(i in 2:4){
+  values <- strsplit(line3[[1]][i], split = ",")
+  for(j in 1:3){
+    row <-  c((i-1)*10000, 1, parse_double(values[[1]][j]))
+    df<- rbind(df,row)
+  }
+}
+for(i in 2:4){
+  values <- strsplit(line4[[1]][i], split = ",")
+  for(j in 1:3){
+    row <-  c((i-1)*10000, 2, parse_double(values[[1]][j]))
+    df<- rbind(df,row)
+  }
+}
+
+names(df)[names(df) == "X10000"] <-"Amount"
+names(df)[names(df) == "X1"] <-"Treatment"
+names(df)[names(df) == "X16.1"] <-"Value"
+
+df
+```
+
+## Problem 5
+
+In the swirl lessons, you played with a dataset "plants".  Our ultimate goal is to see if there is a relationship between pH and Foliage_Color.  Consider a statistic that combines the information in pH_Min and pH_Max.  Clean, summarize and transform the data as appropriate.  Use function _lm_ to test for a relationship.  Report both the coefficients and ANOVA results in table form.
+
+Note that if you didn't just do the swirl lesson, it is now not available.  Add the following code to your project to retrieve it.
+
+```{r echo=T}
+library(swirl)
+# Path to data
+.datapath <- file.path(path.package('swirl'), 'Courses',
+                      'R_Programming_E', 'Looking_at_Data',
+                      'plant-data.txt')
+# Read in data
+plants <- read.csv(.datapath, strip.white=TRUE, na.strings="")
+
+# Remove annoying columns
+.cols2rm <- c('Accepted.Symbol', 'Synonym.Symbol')
+plants <- plants[, !(names(plants) %in% .cols2rm)]
+
+# Make names pretty
+names(plants) <- c('Scientific_Name', 'Duration', 'Active_Growth_Period',
+                   'Foliage_Color', 'pH_Min', 'pH_Max',
+                   'Precip_Min', 'Precip_Max',
+                   'Shade_Tolerance', 'Temp_Min_F')
+```
+
+
+Answer:
+To clean up the data I put the 3 variables of interest into a new data frame and this used this new data frame to eleminate the rows with NA's.  That way we deal with only the data that we have for these 3 variables.  
+
+It wasn't really clear to me what statistic we could use from the pH_min and pH_max, so I just used there average.  
+
+Given that it doesn't really make sense for a factor variable to be the response for a linear model I have considered a model with Foliage color as the input and average ph as the response.  Given the summary below there are two colors overall that seem to have a significant variation in ph levels from the mean and they are gray-green and green.  
+
+```{r}
+p <- data.frame(plants$Foliage_Color, plants$pH_Min, plants$pH_Max)
+p<- na.omit(p)
+p$pH_Avg <- (p$plants.pH_Min+p$plants.pH_Max)/2
+mod <- lm(p$pH_Avg~p$plants.Foliage_Color)
+summary(mod)
+```
+
+
