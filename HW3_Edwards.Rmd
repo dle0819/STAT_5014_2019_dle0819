@@ -1,0 +1,107 @@
+---
+title: "Homework 3"
+author: "David Edwards"
+date: '`r Sys.Date()`'
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(data.table)
+library(tidyr)
+library(dplyr)
+```
+
+
+## Problem 3
+
+Redo Problem 4 parts a-d from last time using the tidyverse functions and piping.
+
+a. Sensory data from five operators.    
+<http://www2.isye.gatech.edu/~jeffwu/wuhamadabook/data/Sensory.dat> 
+b. Gold Medal performance for Olympic Men's Long Jump, year is coded as 1900=0.  
+<http://www2.isye.gatech.edu/~jeffwu/wuhamadabook/data/LongJumpData.dat>  
+c. Brain weight (g) and body weight (kg) for 62 species.    
+<http://www2.isye.gatech.edu/~jeffwu/wuhamadabook/data/BrainandBodyWeight.dat>  
+d. Triplicate measurements of tomato yield for two varieties of tomatos at three planting densities.  
+<http://www2.isye.gatech.edu/~jeffwu/wuhamadabook/data/tomato.dat>  
+
+### Part a
+
+Here is my code for part a.  Didn't really see a need for piping in this one but it was much easier being able to actually read in the data to a table vs parsing it line by line as I had to do the previous week.
+
+```{r}
+url <- "http://www2.isye.gatech.edu/~jeffwu/wuhamadabook/data/Sensory.dat"
+data <- fread(url, fill = TRUE, sep = " ",  skip = 2, col.names = c("Item", "Op1", "Op2",
+                                                                    "Op3","Op4","Op5"))
+j <-1
+for (i in seq(1,dim(data)[1], 3)){
+  data[i+1] = c(j, data[i+1,1:5])
+  data[i+2] = c(j, data[i+2,1:5])
+  j<- j+1
+}
+data <- gather(data, Operator, Value, -Item)
+data
+```
+
+### Part b
+
+I don't remember seeing a function in dplyr or tidyr that would have helped with this one (I'm sure I missed something).  However, this time I was able to just read in the file and then combine the columns in a much simpler way than before.
+
+```{r}
+url <- "http://www2.isye.gatech.edu/~jeffwu/wuhamadabook/data/LongJumpData.dat"
+data <- fread(url, fill = TRUE, skip = 1)
+mydf <- data.frame("Year"=c(data$V1,data$V3,data$V5,data$V7[!is.na(data$V7)]),
+                   "LongJump"=c(data$V2, data$V4, data$V6, data$V8[!is.na(data$V8)]))
+mydf
+
+```
+
+### Part c
+
+Just like part b as this is almost the same problem (in terms of cleaning the data)
+
+```{r}
+url <- "http://www2.isye.gatech.edu/~jeffwu/wuhamadabook/data/BrainandBodyWeight.dat"
+data <- fread(url, fill = TRUE, skip = 1)
+mydf <- data.frame("BodyWt"=c(data$V1,data$V3,data$V5[!is.na(data$V5)]),
+                   "BrainWt"=c(data$V2, data$V4, data$V6[!is.na(data$V6)]))
+
+mydf
+```
+
+### Part d
+
+For this problem I was able to take advantage of the functions in dplyr and tidyr to help tidy up the data set.  The pipes also really helped.  
+
+```{r}
+url <- "http://www2.isye.gatech.edu/~jeffwu/wuhamadabook/data/tomato.dat"
+data <- fread(url, fill = TRUE, header = T, skip = 1, col.names = c("Treatment", "10000","20000","30000"))
+mydf <- bind_rows(data[1,],data[2,])
+mydf <- mydf %>% gather(Levels,Values,-Treatment)%>% separate(Values,c("V1","V2","V3"), sep = ",") %>%gather( Version, Values, -(Treatment:Levels)) %>% select(-Version)
+mydf
+
+```
+
+
+## Problem 4
+
+Finish this homework by pushing your changes to your repo.  In general, your workflow for this should be:  
+
+1. In terminal: git pull  -- to make sure you have the most recent local repo  
+2. In terminal: do some work  
+3. In terminal: git add -- check files you want to commit  
+4. In terminal: git commit -- make message INFORMATIVE and USEFUL  
+5. In terminal: git push -- this pushes your local changes to the repo  
+
+If you have difficulty with steps 1-5, git is not correctly or completely setup.
+
+**Only submit the .Rmd and .pdf solution files.  Names should be formatted HW3_lastname_firstname.Rmd and HW3_lastname_firstname.pdf**
+
+## Optional preperation for next class:  
+
+TBD -- could be something sent as a class message
+
+
+
+
