@@ -1,0 +1,144 @@
+---
+title: "STAT 5014 HW 4"
+author: "David Edwards"
+date: "9/24/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Problem 4
+
+Most of these suggestions I was already familiar with and will strive to use.  I know in the past I haven't always been the best about remembering to use spaces or line up arguments that spread over multiple lines.  I'll working on these things when scripting, specifically when it will be read by someone else.
+
+## Problem 5
+
+Here is my code trying out the lint function.  
+
+```{r}
+library(lintr)
+lint(filename = "./HW3_Edwards.Rmd")
+```
+I ended up with several "errors" most of whcih deal with spacing.    
+
+## Problem 6
+
+Below is my script for the funciton to compute the means, SDs and corrilation between the two devices.  I have also include the code for the boxplot and the violin plot that the problem asks for.
+
+```{r}
+#Function that takes in a data frame with data on two different types of devices and returns 
+#summary data on the data for each device
+SummaryOfDevs <- function(data){
+  Summary <- data.frame(dev1Mean = mean(data$dev1),
+                        dev2Mean = mean(data$dev2),
+                        dev1Sd   = sd(data$dev1),
+                        dev2Sd   = sd(data$dev2),
+                        dev1Cordev2 = cor(data$dev1,data$dev2))
+  return(Summary)
+  
+}
+#Read in the data from the homework file
+HW4_data <- readRDS("~/STAT_5014_Fall_2019/homework/HW4_data.rds")
+
+
+#Initalize the table with the first row from Observer 1
+tableOfObservers <- SummaryOfDevs(HW4_data[HW4_data$Observer == 1, ])
+
+#Add in the rows for the rest of the Observers, 2-13
+for(i in 2:13){
+  tableOfObservers <- rbind(tableOfObservers, SummaryOfDevs(HW4_data[HW4_data$Observer == i, ]))
+}
+
+#Display the results
+tableOfObservers
+
+boxplot(tableOfObservers$dev1Mean, tableOfObservers$dev2Mean)
+
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+
+tableOfSD <- tableOfObservers %>%
+             select(dev1Sd, dev2Sd) %>%
+             gather("Devices", "SD")
+ggplot(tableOfSD, aes(x = Devices, y = SD)) + geom_violin()
+
+```
+
+The boxplot and the violin plot show almost no variation of the mean and SD for each device when we compare these values among observers.  
+
+
+## Problem 7
+
+Below is my code for determining the integral using the left Reimann sum, which in this case will be an over estimate as the function is decreasing on this interval.  The frist function is called and can take in vector of different widths.  The second function is my helper function that then computes the estimate of the integral given the widths.  I think this makes the code easier to read and follow.  
+
+
+```{r}
+ReimannSum_widths <- function(widths = c(0.1, .001)){
+  sums <- rep(NA, length(widths))
+  for(i in 1:length(widths)){
+    sums[i] <- ReimannSum_e(widths[i])
+  }
+  return(data.frame("Widths" = widths, "Integral Approx." = sums))
+}
+
+ReimannSum_e <- function(width){
+  x <- seq(from = 0, to = 1-width, length.out = ceiling(1/width))
+  exponent <- (-1/2)*x*x
+  expx <- exp(exponent)
+  return(sum(expx)*width)
+}
+
+ReimannSum_widths(c(.1, .01, .001, .0001, .00001, .000001, .0000001))
+```
+
+According to Wolframalpha.com the actual value of the integral is 0.855624 to six decimal points.  To gain this level of precision we need to have our width be around 0.000001 or so which is also six significant figures.  
+
+
+## Problem 8
+
+Below is my code for Newton's Method to find the zeros of the function $f(x)=3^x-sin(x)+cos(5x)$.  The assignment said "The answer should include the solutions with tolerance used to terminate the loop, the interval used, and a plot showing the iterations on the path to the solution" but the way I set up the function it takes as an argument the amount of error that the final y-value can be from zero.  Because of this I didn't have the function return the error.  This seems like a more generic function to me and would allow the user to specify the amount of error.  I also created two helper functions that will calculate the function and the derivative of the function to help make the code easier to read.  Finally, I had the function return the sequence of x-values and y-values found on the way to the final soluiton which is given as the the last x-value.
+
+```{r}
+Newton <- function(InitialValue, error = 1e-5){
+  yList <- y <- fOfX(InitialValue)
+  xList <- InitialValue
+  i <- 1
+  while (abs(y) > error) {
+    xOld <- xList[i]
+    xNew <- xOld - fOfX(xOld)/fPrimeOfX(xOld)
+    i <- i + 1
+    xList[i] <- xNew
+    yList[i] <- y <- fOfX(xNew)
+  }
+  
+  return (data.frame("X Values" = xList, "Y Values" = yList))
+}
+
+fOfX <- function(x){
+  return (3^x - sin(x) + cos(5*x))
+}
+
+fPrimeOfX <- function(x){
+  return (3^x*log(3) - 5*sin(5*x) - cos(x))
+}
+
+x <- seq(from = -3, to = -2.85, by = 0.001)
+y <- fOfX(x)
+
+plot(x,y, type = 'l')
+df <- Newton(-3)
+points(df$X.Values[1], df$Y.Values[1], col = "red")
+points(df$X.Values[2], df$Y.Values[2], col = "blue")
+points(df$X.Values[3], df$Y.Values[3], col = "green")
+points(df$X.Values[4], df$Y.Values[4], col = "black")
+abline(0,0)
+
+```
+
+As a plot I have created the function along with the points used to create the approimate answer.  In the case above only 4 iterations were needed to get to a value that was within the error term.  The points have been marked with different colors with black being the color of the solution point.  
+
+
+
