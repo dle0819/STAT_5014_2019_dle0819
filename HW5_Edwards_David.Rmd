@@ -1,0 +1,137 @@
+---
+title: "David Edwards HW 5"
+output:
+  html_document:
+    df_print: paged
+---
+
+## Problem 2
+
+### Part a
+
+First I am going to initialize the data and compute the mean and initialize the counter for the sum of the squares.  
+
+```{r}
+
+set.seed(12345)
+y <- seq(from=1, to=100, length.out = 1e8) + rnorm(1e8)
+
+
+yBar <- mean(y)
+
+sum <- 0
+
+```
+
+For this part I am going to loop through the data and compute the square distance of each point form the mean.  I will sum up these values along the way.
+
+
+```{r}
+system.time({
+for(i in 1:length(y)){
+  sum <- sum + (y[i]-yBar)*(y[i]-yBar)
+}
+})
+sum
+```
+
+### Part b
+
+For this part I am going to be using vector operations to compute the sum of squares
+
+```{r}
+yDiff <- y - yBar
+
+system.time({sumOfSquares <- t(yDiff) %*% yDiff})
+
+sumOfSquares
+```
+
+In this run the total time needed for part a was 6.6 seconds and for the vector operations 0.6 seconds.  This is a more than 10 times speed increase.  
+
+## Problem 3
+
+Below is my implementation of the given algorithm.  First I set up the true value of theta, the X value and Y values, then use this in the algorithm to iterate through a series of updates to my initial value of theta.  I used several step sizes but for this final run I used 0.01 and the threshold of 0.001.  
+
+```{r}
+theta <- as.matrix(c(1,2),nrow=2)
+X <- cbind(1,rep(1:10,10))
+y <- X%*%theta+rnorm(100,0,0.2)
+
+alpha <- 0.01
+m <- length(X)
+thetaOld <- c(1,1)
+thetaNew <- thetaOld - (alpha/m)*t(t((X%*%thetaOld)-y)%*%X)
+thresh <- 0.001
+while(abs(thetaOld[1]-thetaNew[1]>thresh && abs(thetaOld[2]-thetaNew[2]>thresh))){
+  thetaOld <- thetaNew
+  thetaNew <- thetaOld - (alpha/m)*t(t((X%*%thetaOld)-y)%*%X)
+}
+
+thetaNew
+```
+
+Now to compare the results with the lm function
+
+```{r}
+model <- lm(y~0+X)
+model$coefficients
+
+```
+
+Most of the time the lm function seemed to have coefficients closer to the true value than did the algorithm given above but perhaps this could be adjusted by changing either the step value above or the threshold value.  
+
+## Problem 4
+
+John Cook suggest that instead of solving for the inverse of $(x^Tx)^{-1}$ we use the solve function to find $\hat{\beta}$ by solving the following system $(x^Tx)\hat{\beta}=x^T\underline{y}$.  This will save unnecessary computation of $(x^Tx)^{-1}$ since the goal is to really find $\hat{\beta}$.  
+
+
+## Problem 5
+
+```{r}
+set.seed(12456) 
+    
+    G <- matrix(sample(c(0,0.5,1),size=16000,replace=T),ncol=10)
+    R <- cor(G) # R: 10 * 10 correlation matrix of G
+    C <- kronecker(R, diag(1600)) # C is a 16000 * 16000 block diagonal matrix
+    id <- sample(1:16000,size=932,replace=F)
+    q <- sample(c(0,0.5,1),size=15068,replace=T) # vector of length 15068
+    A <- C[id, -id] # matrix of dimension 932 * 15068
+    B <- C[-id, -id] # matrix of dimension 15068 * 15068
+    p <- runif(932,0,1)
+    r <- runif(15068,0,1)
+    C<-NULL #save some memory space
+```
+
+```{r, eval=FALSE}
+system.time({BInverse<- solve(B)})
+```
+### Part a
+
+I couldn't even get the above line to complete in a reasonable amount of time and R would keep locking up on me when I tried.   
+
+What I'm going to do is convert matrix A and matrix B to sparse matrices which will be much quicker for computation.  
+
+For my machine matrix A takes up about 107 megabytes and matrix B about 1.7 gigabytes
+
+### Part b
+
+The first thing I noticed to speed up the calculation was to use the solve function to find the value of $B^{-1}(q-r)$.  We can then take this result and multiply by A and finally add in p.  
+
+What I'm going to do is convert matrix A and matrix B to sparse matrices which will be much quicker for computation.
+
+### Part c
+
+```{r}
+library(Matrix)
+system.time({
+  Anew <- as(A, "sparseMatrix")
+  Bnew <- as(B, "sparseMatrix")
+  s <- q - r
+  D <- solve(Bnew, s)
+  y <- p + Anew %*% D
+})
+
+```
+
+Doing this I was able to compute $\underline{y}$ in about 0.2 seconds.  
