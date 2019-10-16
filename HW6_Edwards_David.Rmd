@@ -1,0 +1,234 @@
+---
+title: "Homework 6"
+subtitle: "David Edwards"
+date: '`r Sys.Date()`'
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+    knitr::opts_chunk$set(echo = TRUE)
+    knitr::opts_chunk$set(echo = F, eval=T, cache=T, tidy.opts=list(width.cutoff=55),
+                tidy=F, include=FALSE, message=F, warning=F)
+    library(kableExtra)
+    library(ggplot2)
+    library(fiftystater)
+```
+
+
+## Problem 3  
+
+### a. Create a function that computes the proportion of successes in a vector.  Use good programming practices.
+
+```{r}
+PofSuccess <- function(vector){
+  vect_success <- vector != 0 ##Assuming that is a success is anything not equal to zero
+  return(sum(vect_success)/length(vector)) ##A success will have value true which is stored as a 1
+}
+```
+This function is just counting up the number of non-zero values in the vector and then dividing that number by the length of the vector.
+
+### b. Create a matrix to simulate 10 flips of a coin with varying degrees of "fairness" (columns = probability) as follows:
+
+```{r echo=T, include=T, eval=T}
+
+    set.seed(12345)
+    P4b_data <- matrix(rbinom(10, 1, prob = (30:40)/100), nrow = 10, ncol = 10, byrow = FALSE)
+
+```
+Fairly straight forward, just run the code above.  
+
+### c. Use your function in conjunction with apply to compute the proportion of success in P4b_data by column and then by row.  What do you observe?  What is going on?
+
+```{r}
+apply(P4b_data, 2, PofSuccess)
+apply(P4b_data, 1, PofSuccess)
+```
+All of the columns have the same proportion of success and each of the rows either have all 1's or all 0's.  It would appear that our matrix is not the random values we were looking for!
+
+### d. You are to fix the above matrix by creating a function whose input is a probability and output is a vector whose elements are the outcomes of 10 flips of a coin.  Now create a vector of the desired probabilities.  Using the appropriate apply family function, create the matrix we really wanted above.  Prove this has worked by using the function created in part a to compute and tabulate the appropriate marginal successes.
+
+```{r}
+BinomOutComes10 <- function(prob){
+  return(rbinom(10, 1, prob)) ##A Binomial with only 1 trial is the same as a Bern
+}
+
+set.seed(1258)
+
+mat <- sapply(seq(from = .31, to = .4, by = .01), BinomOutComes10)#creates our matrix of 10x10
+apply(mat, 2, PofSuccess) 
+
+```
+The BinomOutComes10 will take in a probability value and return simulated data of 10 Bernoulli trials given that probability.  I then apply this to the probabilities given above (there are actually 11 probabilities given above but since problem asks for 10X10 matrix I dropped the value .3).  After getting my matrix of 10 trials for a Bernoulli at 10 different probabilities I then applied my function to compute the proportion of success to each column.  Of course this won't come out to be the exact values chosen but it will be close to 0.4 for each of them.  
+
+## Problem 4
+
+In Homework 4, we had a data set we were to compute some summary statistics from.  The description of the data was given as "a data set which has multiple repeated measurements from two devices by thirteen Observers".  Where the device measurements were in columns "dev1" and "dev2".  Re-import that data set, change the names of "dev1" and "dev2" to x and y and do the following:
+
+\begin{enumerate}
+  \item create a function that accepts a dataframe of values, title, and x/y labels and creates a scatter plot
+  \item use this function to create:
+  \begin{enumerate}
+    \item a single scatter plot of the entire data set
+    \item a separate scatter plot for each observer (using the apply function)
+  \end{enumerate}
+\end{enumerate}
+  
+```{r}
+scPlot <- function(data, title, xlabel, ylabel){
+  plot(data$X, data$Y, main = title, xlab = xlabel, ylab = ylabel)
+}
+
+
+HW6_data <- readRDS("~/STAT_5014_Fall_2019/homework/HW4_data.rds")
+names(HW6_data) = c("Observer", "X", "Y")
+scPlot(HW6_data, "All Data", "Dev 1", "Dev 2")
+
+# I tried to get tapply to work but kept getting the error "arguments must have the same length
+# tapply(cbind(HW6_data$X, HW6_data$Y), HW6_data$Observer, scPlot, "Observer", "Dev 1", "Dev2" )
+# Since I can't get tapply to work and I can't really think of any other way to get the apply 
+# functions to work on only certian rows I'm just going to split the data up into a list of 13 
+# observers
+
+# Kind of beats the reason for using apply to have a loop but I don't see anyother way to do this 
+# problem given that I can't seem to find a way to have an apply function work on only certain parts 
+# of the data
+myList <- list(HW6_data[HW6_data$Observer == 1, ])
+for(i in 2:13){
+  myList[i] <- list(HW6_data[HW6_data$Observer == i, ])  
+}
+
+sapply(myList, scPlot, title = c("Individual Observer Data"), xlab = "Dev 1", ylab = "Dev 2")
+```
+  
+I would have liked to have found away to add in the Observer number to the title of each scatter plot but was unable to find a way to do this without a loop.    
+
+## Problem 5
+
+Our ultimate goal in this problem is to create an annotated map of the US.  I am giving you the code to create said map, you will need to customize it to include the annotations.
+
+### Part a. Get and import a database of US cities and states.  Here is some R code to help:
+
+```{r get_city_list, echo=T, eval=T, include=T}
+
+    #we are grabbing a SQL set from here
+    # http://www.farinspace.com/wp-content/uploads/us_cities_and_states.zip
+
+    #download the files, looks like it is a .zip
+    library(downloader)
+    ##download("http://www.farinspace.com/wp-content/uploads/us_cities_and_states.zip",dest="us_cities_states.zip")
+    unzip("us_cities_states.zip", exdir= "C:/Users/dle08/OneDrive/Documents/VT Classes/5044_Regression/HW")
+    
+    #read in data, looks like sql dump, blah
+    library(data.table)
+    states <- fread(input = "./us_cities_and_states/states.sql",skip = 23,sep = "'", sep2 = ",", header = F, select = c(2,4))
+    ### YOU do the CITIES
+    ### I suggest the cities_extended.sql may have everything you need
+    ### can you figure out how to limit this to the 50?
+    
+    ## Code for cities
+    cities <- fread(input = "./us_cities_and_states/cities_extended.sql",skip = 26,sep = "'", 
+                    sep2 = ",", header = F, select = c(2,4,6,8,10,12))
+    names(cities) = c("City", "State_Code", "Zip", "Latitude", "Longitude", "County")
+```
+
+### Part b. Create a summary table of the number of cities included by state.
+
+```{r}
+tab <- tapply(cities$City, cities$State_Code, length)
+kable(tab)
+```
+For this problem I just used the tapply function to index by the state codes and compute the length of each vector of all the cities in each state.  The output is given as a kable table.
+
+### Part c. Create a function that counts the number of occurrences of a letter in a string.  The input to the function should be "letter" and "state_name".  The output should be a scalar with the count for that letter.
+
+```{r}
+## Function to count all the appearancies of a given letter in a state name
+# First I change all the letters to lower case and them split all of them apart.
+# After this I loop through all the letters in the state name and compare with an included (base
+# R) vector of letters and count every time there is a match.   
+countLetters <- function(state_name, letter){
+  stri <- unlist(strsplit(tolower(state_name), split = ""))
+  count <- 0
+  for(i in 1:length(stri)){
+    if(stri[i] == letter){
+      count <- count + 1
+    }
+  }
+  return(count)
+}
+```
+
+
+### Create a for loop to loop through the state names imported in part a.  Inside the for loop, use an apply family function to iterate across a vector of letters and collect the occurrence count as a vector.
+
+```{r echo=T, eval=T, include=T}
+
+    ##pseudo code
+    letter_count <- data.frame(matrix(NA,nrow=51, ncol=26))
+## I switched this up to loop through all the letters instead of all the states.  For some reason
+## I couldn't get my function, countLetters, to read in the letters correctly as a vector.  Also
+## I included 51 rows in the matrix as the original data includes the District of Columbia  
+    for(i in 1:26){
+        letter_count[,i] <- sapply(states$V2, countLetters, letters[i])
+    }
+
+    ## Change the names of the rows and columns in the matrix.  
+    colnames(letter_count) <- letters
+    rownames(letter_count) <- states$V2
+```
+
+### Part d.Create 2 maps to finalize this.  Map 1 should be colored by count of cities on our list within the state.  Map 2 should highlight only those states that have more than 3 occurrences of ANY letter in their name.
+
+Below is my adapted code from what was provided.  I have created a new data frame with the state names (in lower case) and the values computed above for the number of cities in each state.  
+
+```{r}
+    # Remove the cities that did not correspond to a State or DC
+    tab <- tab[tab != 176]
+    citiesDF <- data.frame(state = tolower(states$V2), Number_of_Cities = tab)
+    # map_id creates the aesthetic mapping to the state name column in your data
+    p <- ggplot(citiesDF, aes(map_id = state)) + 
+      # map points to the fifty_states shape data
+      geom_map(aes(fill = Number_of_Cities), map = fifty_states) + 
+      expand_limits(x = fifty_states$long, y = fifty_states$lat) +
+      coord_map() +
+      scale_x_continuous(breaks = NULL) + 
+      scale_y_continuous(breaks = NULL) +
+      labs(x = "", y = "") +
+      theme(legend.position = "bottom", 
+            panel.background = element_blank())
+    
+    p
+```
+The legend at the bottom seems to be a little compressed but I haven't been able to find a way to fix it.  Also, it would be nice to be able to include other colors and not just different shades of blue.
+(Note: for some reason when I knit this to pdf it does not include the maps.  I have included them as separate files.)
+
+Below is my code for the map that shows states that have the same letter 3 or more times in their name.  First I apply the max function to the rows of my letter count matrix.  After that I determine which of these are greater than or equal to 3.  Finally I create a new data frame that has all of the states names (in lower case) and the true/false values computed for each state.  
+
+```{r}
+  
+  # Get the maximum number of times that a unique letter appears in a States name
+  maxLetterCount <- apply(letter_count, 1, max)
+  
+  #Determine when this maxLetterCount is greater than 3
+  greaterThan3 <- maxLetterCount >= 3
+  
+  letters3 <- data.frame(state = tolower(states$V2), greaterThan3)
+    # map_id creates the aesthetic mapping to the state name column in your data
+    p <- ggplot(letters3, aes(map_id = state)) + 
+      # map points to the fifty_states shape data
+      geom_map(aes(fill = greaterThan3), map = fifty_states) + 
+      expand_limits(x = fifty_states$long, y = fifty_states$lat) +
+      coord_map() +
+      scale_x_continuous(breaks = NULL) + 
+      scale_y_continuous(breaks = NULL) +
+      labs(x = "", y = "") +
+      theme(legend.position = "bottom", 
+            panel.background = element_blank())
+    
+    p
+
+```
+
+
+
+
