@@ -1,0 +1,299 @@
+---
+title: "HW 7 STAT 5014"
+author: "David Edwards"
+date: "10/23/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(parallel)
+library(foreach)
+library(knitr)
+library(kableExtra)
+setwd("~/STAT_5014_2019_dle0819")
+```
+
+## Problem 2
+
+### Part a
+
+I wasn't able to find the issue with the posters code.  
+
+### Part b
+
+Here is my code for the bootstrapping problem.  The first thing I am doing is reading in the file and then setting up the data so that I can take linear model(s) with a repose of Value and input Observer.  After that I set up a matrix (3692 by 100) that contains the indices of the 100 bootstrapped samples.  To construct this matrix I make sure that each observer has 284 values in each sample.  Finally, after this I will compute the 100 beta values for each of the samples and time how long all of this takes.   
+
+```{r}
+HW6_data <- readRDS("./HW4_data.rds")
+HW6_dataC1 <- cbind(HW6_data$Observer, HW6_data$dev1)
+HW6_dataC2 <- cbind(HW6_data$Observer, HW6_data$dev2)
+HW_7 <- rbind(HW6_dataC1, HW6_dataC2)
+df <- data.frame(Observer = HW_7[,1], Value = HW_7[,2])
+
+
+set.seed(1657654)
+
+sampleindexs <- matrix(data = NA, nrow = length(df[,1]), ncol = 100)
+
+timeBoot <- system.time({
+  for(k in 1:100){
+    samples <- sample(1:284, 284, replace = T)
+    for(i in 1:12){
+      sam <- sample(1:284, 284, replace = T)
+      samples <- c(samples, sam + i*284)
+    }
+    sampleindexs[ , k] = samples
+  }
+
+  coefficientsB0B1 <- function(x, y){
+    mod <- lm(y~x)
+    return(c(mod$coefficients[1], mod$coefficients[2]))
+  }
+
+  betas <- matrix(data = NA, nrow = 100, ncol = 2)
+
+  foreach(j = 1:100) %do% {
+    dfnew <- df[sampleindexs[,j],]
+    betas[j,] = coefficientsB0B1(dfnew$Observer, dfnew$Value)
+  
+  }
+
+})
+```
+
+The total time turns out to be `r timeBoot` seconds.
+
+### Part c
+
+Now run essentially the same code but parallelize this process of computing the 100 beta values.  
+
+```{r}
+
+set.seed(1657654)
+
+sampleindexs <- matrix(data = NA, nrow = length(df[,1]), ncol = 100)
+
+timeBootPar <- system.time({
+for(k in 1:100){
+  samples <- sample(1:284, 284, replace = T)
+  for(i in 1:12){
+    sam <- sample(1:284, 284, replace = T)
+    samples <- c(samples, sam + i*284)
+  }
+  sampleindexs[ , k] = samples
+}
+
+coefficientsB0B1 <- function(x, y){
+  mod <- lm(y~x)
+  return(c(mod$coefficients[1], mod$coefficients[2]))
+}
+
+betas <- matrix(data = NA, nrow = 100, ncol = 2)
+
+cores <- 8
+
+cl <- makeCluster(cores)
+
+foreach(j = 1:100) %dopar% {
+  dfnew <- df[sampleindexs[,j],]
+  betas[j,] = coefficientsB0B1(dfnew$Observer, dfnew$Value)
+  
+}
+
+stopCluster(cl)
+
+})
+```
+
+Here is the table summarizing the time for both methods.
+
+```{r}
+dfBoot <- as.data.frame(rbind(timeBoot[1:3], timeBootPar[1:3]))
+kable(dfBoot)
+```
+
+
+
+## Problem 3
+
+Below is my code for Newton's method.  The problem asks us how many roots there are to the function given in the problem, and there are infinity many roots.  As $x\rightarrow -\infty$ we have that $3^x\approx0$, which means we are left with the sin and cos terms which are periodic between values of -1 and 1.  The problem also asks for us to set up a grid of possible  
+
+```{r}
+Newton <- function(InitialValue){
+  y <- fOfX(InitialValue)
+  xNew <- InitialValue
+  i <- 1
+  error = 1e-10
+  while (abs(y) > error) {
+    xOld <- xNew
+    xNew <- xOld - fOfX(xOld)/fPrimeOfX(xOld)
+    i <- i + 1
+    y <- fOfX(xNew)
+    if(i > 200){
+      return(NA)
+    }
+  }
+  return (xNew)
+}
+
+fOfX <- function(x){
+  return (3^x - sin(x) + cos(5*x))
+}
+
+fPrimeOfX <- function(x){
+  return (3^x*log(3) - 5*sin(5*x) - cos(x))
+}
+
+x <- seq(from = 0, to = -500, length.out = 1000)
+
+timeNewton <- system.time({
+zeros <- sapply(x, Newton)
+})
+
+```
+
+The total time is `r timeNewton[3]` seconds.  Here is my table for the zeros.
+
+```{r}
+dfNewton <- data.frame("Input" = x, "Found Zero" = zeros)
+kable(dfNewton, "latex", longtable = T, 
+      booktabs = T, caption = "Zeros")
+```
+
+
+Below is my code for the same problem but this time I parallelize the problem.  
+
+```{r}
+cores <- 8
+cl <- makeCluster(cores)
+
+timeNewtonPar <- system.time({
+  zeros <- sapply(x, Newton)
+})
+
+stopCluster(cl)
+```
+
+This instance the total time is `r timeNewtonPar` seconds.  The table of zeros is given below.
+
+```{r}
+dfNewtonPar <- data.frame("Input" = x, "Found Zero" = zeros)
+kable(dfNewtonPar, "latex", longtable = T, 
+      booktabs = T, caption = "Zeros")
+```
+
+Both methods are essentially taking the same amount of time 
+
+## Problem 4
+
+The below code is my for setting up a 100 by 100 grid of possible starting values (10,000 in total).  To parallelize the code I created a function called GradientDecent that will take in the initial theta values and execute the algorithm for the given step size and tolerance.  
+
+```{r, eval=FALSE}
+GradientDecent <- function(betas){
+  #Set up the simulated data
+  set.seed(1256)
+  theta <- as.matrix(c(1,2),nrow=2)
+  X <- cbind(1,rep(1:10,10))
+  h <- X%*%theta+rnorm(100,0,0.2)
+  
+  
+  alpha <- 0.0000001 # this is the step size
+  m <- 100 # this is the size of h
+  tolerance <- 0.000000001 # stopping tolerance
+  theta0 <- c(betas[1],rep(0,999)) # I want to try a guess at 1, setting up container for max 1000 iters
+  theta1 <- c(betas[2],rep(0,999))
+  i <- 2 #iterator, list index 1 is my inital guess
+  #current theta is last guess
+  current_theta <- as.matrix(c(theta0[i-1],theta1[i-1]),nrow=2)
+  #update guess using gradient
+  rs_X <- rowSums(X) # can precalc to save some time
+  #set up the first iteration
+  theta0[i] <-theta0[i-1] - (alpha/m) * sum(X %*% current_theta - h)
+  theta1[i] <-theta1[i-1] - (alpha/m) * sum((X %*% current_theta - h)*rs_X)
+  z <- 0
+  
+  #loop untill the change in the thetas is less than the tolerance or we are run 5e6 loops
+  while(abs(theta0[i]-theta0[i-1])>tolerance && abs(theta1[i]-theta1[i-1])>tolerance && z<5000000){
+    if(i==1000){theta0[1]=theta0[i]; theta1[1]=theta1[i]; i=1; } ##cat("z=",z,"\n",sep="")}
+    z <- z + 1
+    i <- i + 1
+    current_theta <- as.matrix(c(theta0[i-1],theta1[i-1]),nrow=2)
+    theta0[i] <-theta0[i-1] - (alpha/m) * sum(X %*% current_theta - h)
+    theta1[i] <-theta1[i-1] - (alpha/m) * sum((X %*% current_theta - h)*rs_X)
+    # if(i %% 1000 == 0){
+    #   print(abs(theta1[i]-theta1[i-1]))
+    # }
+  }
+  theta0 <- theta0[i]
+  theta1 <- theta1[i]
+  #return the last theta values and the number of iteration completed.  
+  return(c(theta0, theta1, z))
+}
+
+
+#set up the grid of theta0 and theta1
+theta0Values <- seq(0, 2, length.out = 100)
+theta1Values <- seq(1, 3, length.out = 100)
+
+thetaPairs <- matrix(NA, nrow = 10000, ncol = 2)
+
+#combine the two grids to get a martix of test values
+for(i in 1:100){
+  for(j in 1:100){
+    rownum <- (i-1)*100 + j
+    thetaPairs[rownum, 1] <- theta0Values[i]
+    thetaPairs[rownum, 2] <- theta1Values[j]
+  }
+}
+
+#create cluster
+cores <- 10
+cl <- makeCluster(cores)
+
+#timing
+time <- system.time({
+  Thetas <- parApply(cl, thetaPairs, MARGIN = 1, GradientDecent)
+})
+
+stopCluster(cl)
+```
+
+The above code need about 3.8 hours to complete.  Thus, I am not running it again when I knit, but I did save the output to an .RData file that I will load now.  
+
+```{r}
+load("./workspaceHW7.RData")
+time
+```
+
+### Part a
+
+While we could include the true values in the stopping condition for this instance, in general we won't know the true values.  In fact, if we did know the true values we wouldn't need the above algorithm, as the whole point is to estimate the true values.  
+
+### Part b
+
+First I will compute the proportion of pairs that ran for 5,000,000 iterations of the while loop.
+
+```{r}
+df <- as.data.frame(cbind(thetaPairs, t(Thetas)))
+colnames(df) <- c("Initial Theta0", "Initial Theta1", "Final Theta0"
+                  , "Final Theta1", "Number of Iterations")
+prop <- sum(df[,5] == 5000000)
+```
+
+Thus the proportion is `r prop/10000`.  
+
+Below is my table for the 10,000 input pairs, their output values and the number of iterations needed.  
+
+```{r}
+kable(df, "latex", longtable = T, booktabs = T, caption = "Theta Values")
+```
+
+
+
+
+
+
+
+
+
