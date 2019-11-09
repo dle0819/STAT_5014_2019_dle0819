@@ -1,0 +1,161 @@
+---
+title: "STAT 5014 HW 8"
+author: "David Edwards"
+date: "11/8/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(kableExtra)
+library(dplyr)
+library(tidyr)
+library(gridExtra)
+library(ggplot2)
+```
+
+## Problem 3
+
+Read in the data
+
+```{r, eval=FALSE}
+#Run all of this just once.
+#Read in Data
+Ed.data <- read.csv("./Ed_Data.csv", header = T)
+
+#Remove columns that are not needed
+Ed.data <- Ed.data[,c(1, 4, 5:69)]
+
+#Determine if any columns are all NA's  
+colmunRemove <- c()
+for(i in 1:67){
+  if(all(is.na(Ed.data[,i]))){
+    colmunRemove <- c(colmunRemove, i)
+  }
+}#Turns out all the columns contain at least 1 value
+
+
+#Find all rows that contain nothing but NAs
+rowRemove <- c()
+for(j in 1:nrow(Ed.data)){
+  if(all(is.na(Ed.data[j,3:47]))){
+    rowRemove <- c(rowRemove, j)
+  }
+  if(j %% 100 == 0){
+    print(j)
+  }
+}
+
+#Remove the rows
+Ed.data <- Ed.data[-rowRemove, ]
+
+#Gather the data
+CleanData <- gather(Ed.data, "Year", "Value", -c(ï..Country.Name, Indicator.Code), na.rm = F)
+
+#Again remove rows that contain NAs
+CleanData_Rm <- CleanData[!is.na(CleanData$Value),]
+save.image(file = "CleanData.RData")
+```
+
+```{r}
+load(file = "./CleanData.RData")
+names(CleanData_Rm) <- c("Country.Name", "Indicator.Code", "Year", "Value")
+```
+
+```{r}
+#Pick to countries
+Iceland <- CleanData_Rm[CleanData_Rm$Country.Name == "Iceland",]
+Italy <- CleanData_Rm[CleanData_Rm$Country.Name == "Italy",]
+
+#Combine there data
+twoContries <- rbind(Iceland, Italy)
+```
+
+
+```{r}
+#Make sure that we compare the same values for each country
+twoContries <- spread(twoContries, Indicator.Code, Value)
+```
+
+```{r}
+#I decided to work with 250 variables to make sure that I have enough data and to show that the ideas work. 
+#Since I don't know what any of this data really means I figured which variables I pick doesn't really matter.
+twoContries <- twoContries[,1:250]
+
+#Remove the rows that don't contain any information
+rowRemove <- c()
+for(j in 1:nrow(twoContries)){
+  if(all(is.na(twoContries[j,3:250]))){
+    rowRemove <- c(rowRemove, j)
+  }
+
+}
+
+twoContries <- twoContries[-rowRemove,]
+```
+
+
+```{r}
+Iceland <- twoContries[1:9,]
+Iceland <- select(Iceland, -c(Country.Name,Year))
+Italy <- twoContries[10:18,]
+Italy <- select(Italy, -c(Country.Name, Year))
+
+Iceland_Avg <- sapply(Iceland, mean)
+Italy_Avg <- sapply(Italy, mean)
+
+two_Avg <- rbind(Iceland_Avg, Italy_Avg)
+
+#two_Avg <- two_Avg[,1:250]
+
+kable(t(two_Avg), "latex", longtable = T, booktabs = T, caption = "Average Values")
+```
+
+To answer the rest of the question, there were about 880,000 original data points in the data, after cleaning up there were about 5,000,000 data points.
+
+
+## Problem 4
+
+This is my solution to the scatter plot with marginal histograms using base R. For this problem I just picked an indicator code and compared the values for the Arab and EU regions. Please ignore the first histogram.  I just created it to get the data out of it to create the next plot but couldn't figure out how to keep it from displaying.   
+
+```{r}
+SE.PRM.TENR <- Ed.data[Ed.data$Indicator.Code == "SE.PRM.TENR",]
+Arab <- t(SE.PRM.TENR[1,3:47])
+EU <- t(SE.PRM.TENR[7,3:47])
+H <- hist(EU)
+```
+
+
+```{r}
+
+
+par(mfrow = c(2,2))
+par(mfg=c(1,1))
+hist(Arab)
+par(mfg=c(2,1))
+plot(Arab,EU)
+
+par(mfg=c(2,2))
+plot(NULL, type = "n", xlim = c(0, max(H$counts)), ylim = c(range(H$breaks)), xlab = "Frequency", ylab = "EU")
+rect(0, H$breaks[1:(length(H$breaks) - 1)], H$counts, H$breaks[2:length(H$breaks)])
+```
+
+
+## Problem 5
+
+Below is my plot using the ggplot2 package.  I found this code on the following site: https://stackoverflow.com/questions/8545035/scatterplot-with-marginal-histograms-in-ggplot2
+
+```{r}
+hist_top <- ggplot()+geom_histogram(aes(Arab))
+empty <- ggplot()+geom_point(aes(1,1), colour="white")+
+         theme(axis.ticks=element_blank(), 
+               panel.background=element_blank(), 
+               axis.text.x=element_blank(), axis.text.y=element_blank(),           
+               axis.title.x=element_blank(), axis.title.y=element_blank())
+
+scatter <- ggplot()+geom_point(aes(Arab, EU))
+hist_right <- ggplot()+geom_histogram(aes(EU))+coord_flip()
+
+grid.arrange(hist_top, empty, scatter, hist_right, ncol=2, nrow=2, widths=c(4, 1), heights=c(1, 4))
+```
+
